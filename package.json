@@ -1,0 +1,29 @@
+{
+  "name": "fault-tolerance-krs-rabbitmq",
+  "version": "1.0.0",
+  "description": "Simulasi Fault Tolerance Sistem Terdistribusi (Studi Kasus KRS) menggunakan Node.js, RabbitMQ (Host), dan Dockerized Replicated Consumers",
+  "main": "src/consumer.js",
+  "scripts": {
+    "produce": "node src/producer.js",
+    "produce:paced": "node src/producer.js --interval=2000",
+    "produce:duplicate": "node src/producer.js --batch=DEMO-IDEMPOTENSI",
+    "produce:nack": "node src/producer.js --fail-once=3",
+    "consumer:local": "node src/consumer.js",
+    "ui": "node src/dashboard.js",
+    "reset:data": "node scripts/reset-data.js",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up --build",
+    "docker:up:d": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "kill:c1": "docker kill consumer-1",
+    "stop:c1": "docker stop consumer-1",
+    "start:c1": "docker compose up -d consumer-1",
+    "kill:c2": "docker kill consumer-2",
+    "start:c2": "docker compose up -d consumer-2"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.9",
+    "dotenv": "^16.4.7"
+  }
+}

@@ -1,0 +1,53 @@
+# ==============================================================================
+# DOCKER COMPOSE — KHUSUS WORKER (CONSUMER)
+# Sesuai instruksi:
+# 1. Yang di-Docker-kan adalah Worker (Consumer), BUKAN RabbitMQ.
+#    RabbitMQ berjalan terpisah di Host OS (atau broker eksternal).
+# 2. Hanya menggunakan 1 file source code consumer (src/consumer.js) dan
+#    1 image Docker yang direplikasi menjadi Consumer 1 & Consumer 2.
+# 3. Consumer 1 terhubung lebih dulu (Active Consumer) menangani seluruh pesan;
+#    Consumer 2 standby dan langsung mengambil alih sisa pesan & pesan unacked
+#    jika Consumer 1 mati (Single Active Consumer + Manual ACK).
+# ==============================================================================
+
+x-worker-base: &worker-base
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: fault-tolerance-krs-worker:latest
+  env_file:
+    - .env
+  extra_hosts:
+    # Memungkinkan container mengakses RabbitMQ yang berjalan di Host OS
+    - "host.docker.internal:host-gateway"
+  volumes:
+    # Shared volume untuk penyimpanan idempotency antar-replica worker
+    - ./data:/app/data
+  # restart: "no" sengaja diset agar ketika Consumer 1 dimatikan pada Skenario 2 & 3,
+  # container tetap mati dan tidak auto-restart oleh Docker (sehingga failover ke
+  # Consumer 2 dapat diamati dengan jelas). Reconnect saat RabbitMQ mati (Skenario 4 & 5)
+  # ditangani langsung di dalam kode Node.js tanpa mematikan container.
+  restart: "no"
+
+services:
+  consumer-1:
+    <<: *worker-base
+    container_name: consumer-1
+    environment:
+      RUNNING_IN_DOCKER: "true"
+      WORKER_ID: "consumer-1"
+      START_DELAY_MS: "0"
+      IDEMPOTENCY_DIR: "/app/data/processed"
+
+  consumer-2:
+    <<: *worker-base
+    container_name: consumer-2
+    depends_on:
+      - consumer-1
+    environment:
+      RUNNING_IN_DOCKER: "true"
+      WORKER_ID: "consumer-2"
+      # Jeda 2.5 detik memastikan consumer-1 selalu mendaftar lebih dulu sebagai
+      # Single Active Consumer (Worker Utama) dan consumer-2 menjadi Standby/Backup.
+      START_DELAY_MS: "2500"
+      IDEMPOTENCY_DIR: "/app/data/processed"
